@@ -1,7 +1,7 @@
 #!/bin/bash
 set -eo pipefail
 
-# 参数解析
+# 参数处理
 while getopts "v:" opt; do
   case $opt in
     v) REDIS_VERSION="$OPTARG" ;;
@@ -9,24 +9,24 @@ while getopts "v:" opt; do
   esac
 done
 
-# 版本校验
+# 版本验证
 validate_version() {
-  if [[ ! "$REDIS_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-    echo "错误：版本号格式无效，示例：7.2.4"
+  [[ "$REDIS_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
+    echo "Invalid version format. Example: 7.2.4"
     exit 1
-  fi
+  }
 }
 
-# 主流程
+# 主构建流程
 main() {
   validate_version
   
-  local WORKDIR="/c/build"
+  WORKDIR="/c/redis-build"
   rm -rf "$WORKDIR"
   mkdir -p "$WORKDIR"
   cd "$WORKDIR"
 
-  echo "▌ 正在构建 Redis $REDIS_VERSION ..."
+  echo "▌ Building Redis $REDIS_VERSION..."
   
   # 克隆源码
   git clone --depth 1 --branch "$REDIS_VERSION" https://github.com/redis/redis.git
@@ -34,36 +34,47 @@ main() {
 
   # 应用补丁
   apply_patches() {
-    echo "▌ 应用系统补丁..."
+    echo "▌ Applying patches..."
     for patch in ../../patches/common/*.patch; do
-      git apply --verbose "$patch" || true
+      git apply --verbose "$patch" || echo "Skipping incompatible patch: $patch"
     done
 
     local major_minor=${REDIS_VERSION%.*}
-    for patch in ../../patches/v$major_minor/*.patch; do
-      [ -f "$patch" ] && git apply "$patch"
-    done
+    if [ -d "../../patches/v$major_minor" ]; then
+      for patch in "../../patches/v$major_minor"/*.patch; do
+        git apply "$patch"
+      done
+    fi
   }
   apply_patches
 
-  # 编译依赖
-  build_deps() {
-    echo "▌ 编译依赖库..."
-    pacman -S --noconfirm mingw-w64-x86_64-jemalloc
-  }
-  build_deps
+  # 修复Windows路径
+  find src -type f -exec sed -i 's#/#\\#g' {} +
 
-  # 修改构建配置
-  sed -i 's/-Werror //g' src/Makefile
-  echo "LIBS += -ljemalloc" >> src/Makefile
+  # 编译配置
+  sed -i.orig '
+    s/-Werror //g;
+    s/MALLOC=.*/MALLOC=jemalloc/;
+    s/^LDFLAGS=/LDFLAGS=-pthread /;
+    s/-O2/-O2 -D_WIN32_WINNT=0x0600/;
+  ' src/Makefile
 
-  # 执行编译
-  echo "▌ 开始编译..."
-  make -j$(nproc) CC="gcc" MALLOC=jemalloc
+  echo "LIBS += -ljemalloc -lws2_32" >> src/Makefile
+
+  # 开始编译
+  echo "▌ Compiling..."
+  make -j$(nproc) CC="gcc" CFLAGS="-I/mingw64/include" LDFLAGS="-L/mingw64/lib"
 
   # 验证输出
-  [ -f src/redis-server.exe ] || { echo "编译失败：缺少 redis-server.exe"; exit 1; }
-  echo "✓ 构建成功！"
+  required_bins=("redis-server.exe" "redis-cli.exe")
+  for bin in "${required_bins[@]}"; do
+    [ -f "src/$bin" ] || {
+      echo "Build failed: Missing $bin"
+      exit 1
+    }
+  done
+
+  echo "✓ Build successful!"
 }
 
 main "$@"

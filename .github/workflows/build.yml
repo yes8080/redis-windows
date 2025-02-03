@@ -1,4 +1,4 @@
-name: Build Redis for Windows
+name: Build and Release Redis for Windows
 
 on:
   workflow_dispatch:
@@ -12,7 +12,7 @@ on:
         required: false
 
 jobs:
-  build-and-publish:
+  build:
     runs-on: windows-latest
     timeout-minutes: 45
 
@@ -24,25 +24,51 @@ jobs:
       uses: msys2/setup-msys2@v2
       with:
         update: true
-        install: >
+        install: >-
           base-devel
+          git
           mingw-w64-x86_64-gcc
           mingw-w64-x86_64-make
           mingw-w64-x86_64-cmake
+          mingw-w64-x86_64-jemalloc
 
     - name: Build Redis
       shell: msys2 {0}
       env:
         REDIS_VERSION: ${{ github.event.inputs.redis_version }}
       run: |
-        chmod +x scripts/build.sh
-        ./scripts/build.sh -v $REDIS_VERSION
+        export PATH="/mingw64/bin:$PATH"
+        cd scripts
+        chmod +x build.sh
+        ./build.sh -v $REDIS_VERSION
 
     - name: Upload Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: redis-bin-${{ github.event.inputs.redis_version }}
+        name: redis-windows-bin
         path: |
           redis/src/redis-server.exe
           redis/src/redis-cli.exe
           redis/src/redis-benchmark.exe
+
+  release:
+    needs: [build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+    - name: Download artifact
+      uses: actions/download-artifact@v3
+      with:
+        name: redis-windows-bin
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: win-${{ github.event.inputs.redis_version }}-$(date +%Y%m%d)
+        name: Redis ${{ github.event.inputs.redis_version }} Windows Build
+        files: |
+          redis-server.exe
+          redis-cli.exe
+          redis-benchmark.exe
