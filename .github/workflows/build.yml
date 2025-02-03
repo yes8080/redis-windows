@@ -1,0 +1,48 @@
+name: Build Redis for Windows
+
+on:
+  workflow_dispatch:
+    inputs:
+      redis_version:
+        description: 'Redis Version (e.g. 7.2.4)'
+        required: true
+        default: '7.2.4'
+      release_tag:
+        description: 'Release Tag (e.g. v7.2.4-win)'
+        required: false
+
+jobs:
+  build-and-publish:
+    runs-on: windows-latest
+    timeout-minutes: 45
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup MSYS2
+      uses: msys2/setup-msys2@v2
+      with:
+        update: true
+        install: >
+          base-devel
+          mingw-w64-x86_64-gcc
+          mingw-w64-x86_64-make
+          mingw-w64-x86_64-cmake
+
+    - name: Build Redis
+      shell: msys2 {0}
+      env:
+        REDIS_VERSION: ${{ github.event.inputs.redis_version }}
+      run: |
+        chmod +x scripts/build.sh
+        ./scripts/build.sh -v $REDIS_VERSION
+
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: redis-bin-${{ github.event.inputs.redis_version }}
+        path: |
+          redis/src/redis-server.exe
+          redis/src/redis-cli.exe
+          redis/src/redis-benchmark.exe

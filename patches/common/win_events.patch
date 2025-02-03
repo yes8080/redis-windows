@@ -1,0 +1,15 @@
+diff --git a/src/ae.c b/src/ae.c
+index 4a7b3d0..a1d8f1b 100644
+--- a/src/ae.c
++++ b/src/ae.c
+@@ -34,6 +34,10 @@
+ #include "ae.h"
+ #include "zmalloc.h"
+ #include "config.h"
++#ifdef _WIN32
++#include <uv.h>
++static uv_loop_t *loop;
++#endif
+ 
+ /* Include the best multiplexing layer supported by this system.
+  * 包含系统支持的最佳多路复用层 */
