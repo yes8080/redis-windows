@@ -39,7 +39,7 @@ jobs:
         ./scripts/build.sh -v $REDIS_VERSION
 
     - name: Upload Artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: redis-bin-${{ github.event.inputs.redis_version }}
         path: |
