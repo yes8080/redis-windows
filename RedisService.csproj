@@ -7,11 +7,18 @@
 		<ImplicitUsings>enable</ImplicitUsings>
 		<PublishSingleFile>true</PublishSingleFile>
 		<InvariantGlobalization>true</InvariantGlobalization>
-		<PublishReadyToRun>false</PublishReadyToRun>
+		<PublishReadyToRun>true</PublishReadyToRun>
 		<PublishTrimmed>true</PublishTrimmed>
+		<TrimMode>partial</TrimMode>
 		<RuntimeIdentifier>win-x64</RuntimeIdentifier>
 		<OutputType>exe</OutputType>
 		<PublishDir>.\publish</PublishDir>
+		<EnableRequestDelegateGenerator>true</EnableRequestDelegateGenerator>
+		<JsonSerializerIsReflectionEnabledByDefault>false</JsonSerializerIsReflectionEnabledByDefault>
+		<OptimizationPreference>speed</OptimizationPreference>
+		<WarningLevel>5</WarningLevel>
+		<TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+		<WarningsNotAsErrors>CS8618</WarningsNotAsErrors>
 	</PropertyGroup>
 
 	<ItemGroup>
